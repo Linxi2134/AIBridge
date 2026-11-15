@@ -37,3 +37,85 @@ tar -xzf AIBridge-Linux.tar.gz
 cd AIBridge-Linux
 npm install
 ./start.sh
+```
+
+需要 Node.js 18+。首次启动会生成 `data/config.json`。
+
+### 从源码运行
+
+```bash
+git clone https://github.com/Linxi2134/AIBridge.git AIBridge
+cd AIBridge
+npm install
+node server.js
+```
+
+打开 `http://127.0.0.1:8787`。
+
+## 配置
+
+所有配置都可以在网页后台完成：
+
+- **模型**：添加 OpenAI 兼容提供商、Base URL、API Key 和模型名
+- **渠道**：按平台提示填写 AppID / Secret / Token / EncodingAESKey
+- **智能体**：创建人设、系统提示词和路由规则
+- **语音**：选择云端 STT/TTS，或安装本地模型
+- **记忆**：开启自动提炼，配置公共记忆与用户记忆
+
+`data/config.json` 含密钥，不要提交到 Git。仓库和发布包只提供 `data/config.example.json`。
+
+## 目录结构
+
+```text
+AIBridge/
+├─ server.js              # 网关入口
+├─ lib/                   # 渠道、模型、记忆、语音、游戏控制
+├─ public/                # 网页管理后台
+├─ mcmod/                 # Minecraft 客户端控制 mod 源码与构建脚本
+├─ tests/                 # 自测与集成测试
+├─ data/                  # 运行时配置、会话、索引（不提交密钥）
+├─ runtime/               # Node / Minecraft / 模型等本地运行时
+├─ start.bat              # Windows 启动
+└─ start.sh               # Linux / macOS 启动
+```
+
+## Minecraft 控制
+
+`mcmod/` 通过 Java agent 在客户端进程内调用游戏 API，不模拟鼠标键盘。需要：
+
+- JDK 25+
+- Minecraft 26.3 客户端
+- 首次运行前把游戏运行时放到 `runtime/mc`，或使用内置启动器下载
+
+编译 mod：
+
+```bash
+node mcmod/build.js
+```
+
+Minecraft 相关能力仍在持续验证，建议先在测试存档使用。
+
+## 安全说明
+
+- 不要提交 `data/config.json`、`data/sessions.json`、`data/memory.json` 或游戏存档
+- 发布包不包含 API Key、QQ 号、会话、日志和个人配置
+- 电脑操控默认关闭，开启前请确认只允许可信用户访问
+- 公网部署时请在反向代理层增加认证和 HTTPS
+
+## 发布包
+
+- `AIBridge-Windows.zip`：Windows x64，内置 Node 和依赖，解压后 `start.bat`
+- `AIBridge-Linux.tar.gz`：Linux 源码包，执行 `npm install` 后 `./start.sh`
+
+两个包都不包含模型权重、Minecraft 客户端和个人数据。
+
+## 已知限制
+
+- Minecraft 控制仍属实验功能，不同地形和版本可能失败
+- 本地 LLM / STT 需要自行下载模型
+- Linux 包不包含 Windows 专用的 `ctl.exe` 和 PowerShell 辅助脚本
+- 部分渠道接入需要公网回调地址和对应平台审核
+
+## License
+
+尚未指定开源许可证；发布前请按实际需求补充 `LICENSE`。
