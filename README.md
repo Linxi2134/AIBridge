@@ -41,6 +41,11 @@ npm install
 
 需要 Node.js 18+。首次启动会生成 `data/config.json`。
 
+### Android 安装包
+
+到 [Releases](https://github.com/Linxi2134/AIBridge/releases) 下载 `AIBridge.apk`（Android 8.0+，arm64，应用内自带网关），
+首次启动会解压内置运行时（约 100MB）。构建、`--check` 同步校验与模拟器自测命令见 `android/README.md`。
+
 ### 从源码运行
 
 ```bash
