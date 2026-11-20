@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "aibridge-control",
+  "version": "${version}",
+  "name": "AIBridge Control",
+  "description": "Local HTTP control interface so an AI can drive the client directly, without touching mouse or keyboard.",
+  "authors": ["AIBridge"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.aibridge.mcmod.AiBridgeMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25"
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "server": {
+    "port": 8787,
+    "publicUrl": ""
+  },
+  "providers": [
+    {
+      "id": "prov_openai",
+      "name": "OpenAI 兼容接口",
+      "type": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "",
+      "models": [
+        "gpt-4o-mini",
+        "gpt-4o",
+        "gpt-4.1-mini"
+      ],
+      "headers": {}
+    }
+  ],
+  "agents": [
+    {
+      "id": "agent_default",
+      "name": "通用助手",
+      "providerId": "prov_openai",
+      "model": "gpt-4o-mini",
+      "systemPrompt": "你是一位可靠、亲切的中文 AI 助手。回答要准确、简洁、有条理。\n当用户的问题需要实时信息或计算时，优先调用工具而不是猜测。\n如果不知道答案，直接说明，不要编造。",
+      "temperature": 0.7,
+      "maxTokens": 1200,
+      "tools": [
+        "get_time",
+        "calc",
+        "remember",
+        "recall",
+        "send_message",
+        "list_contacts",
+        "list_sessions"
+      ],
+      "keywords": [],
+      "channels": [
+        "web",
+        "wechat",
+        "wecom",
+        "qq",
+        "onebot"
+      ],
+      "enabled": true,
+      "greeting": "你好，我是你的 AI 助手，有什么可以帮你？"
+    }
+  ],
+  "voice": {
+    "stt": {
+      "enabled": false,
+      "provider": "api",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "",
+      "model": "whisper-1",
+      "language": "zh",
+      "local": {
+        "model": "sensevoice",
+        "threads": 0
+      }
+    },
+    "tts": {
+      "enabled": false,
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "",
+      "model": "tts-1",
+      "voice": "alloy",
+      "speed": 1,
+      "format": "mp3"
+    },
+    "browserFallback": true,
+    "autoSpeak": false,
+    "qq": {
+      "enabled": false,
+      "listen": true,
+      "reply": false,
+      "alwaysVoice": false,
+      "groupReply": false,
+      "maxChars": 80,
+      "silkRate": 24000,
+      "ttsFormat": "wav"
+    }
+  },
+  "computer": {
+    "enabled": false,
+    "allowShell": false,
+    "allowLaunch": true,
+    "maxWidth": 1600,
+    "quality": 62,
+    "timeoutMs": 20000
+  },
+  "channels": {
+    "wechat": {
+      "enabled": false,
+      "appId": "",
+      "appSecret": "",
+      "token": "",
+      "encodingAesKey": "",
+      "mode": "plain"
+    },
+    "wecom": {
+      "enabled": false,
+      "corpId": "",
+      "agentId": "",
+      "secret": "",
+      "token": "",
+      "encodingAesKey": ""
+    },
+    "qq": {
+      "enabled": false,
+      "appId": "",
+      "appSecret": "",
+      "token": "",
+      "sandbox": false
+    },
+    "onebot": {
+      "enabled": false,
+      "apiBase": "http://127.0.0.1:3000",
+      "token": "",
+      "selfId": "",
+      "groupAtOnly": true,
+      "privateReply": true,
+      "replyAt": true,
+      "wsPort": 8082,
+      "antispam": {
+        "enabled": true,
+        "minIntervalMs": 2500,
+        "jitterMs": 2000,
+        "perTargetCooldownMs": 10000,
+        "maxPerMinute": 15,
+        "maxQueue": 30,
+        "typingPerCharMs": 12,
+        "typingMaxMs": 4000,
+        "splitLong": true,
+        "maxLenPerMsg": 500,
+        "maxSegments": 3,
+        "mergeWindowMs": 1200,
+        "blockWords": []
+      }
+    },
+    "napcatWebui": {
+      "baseUrl": "http://127.0.0.1:6099",
+      "token": "",
+      "autoStart": true,
+      "qqPath": ""
+    }
+  },
+  "routing": {
+    "defaultAgentId": "agent_default"
+  },
+  "search": {
+    "provider": "none",
+    "apiKey": ""
+  },
+  "game": {
+    "allowVision": false,
+    "providerId": "",
+    "model": "",
+    "reflex": true,
+    "menuControl": true,
+    "allowControl": true,
+    "moveView": true
+  },
+  "memory": {
+    "enabled": true,
+    "autoExtract": true,
+    "model": "",
+    "injectLimit": 12,
+    "link": {
+      "enabled": false,
+      "channel": "onebot",
+      "userId": ""
+    }
+  }
+}

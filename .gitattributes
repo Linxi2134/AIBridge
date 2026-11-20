@@ -1,0 +1,15 @@
+# 统一换行：仓库内容按 LF 存，Windows 脚本检出为 CRLF
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制
+*.so binary
+*.jar binary
+*.png binary
+*.ico binary
+*.keystore binary
+*.apk binary
+*.zip binary
+*.tar.gz binary

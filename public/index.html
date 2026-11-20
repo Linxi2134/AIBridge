@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIBridge · 多平台 AI 接入网关</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%234361ee'/><path d='M28 68V32l22 14 22-14v36' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 100 100" width="26" height="26"><path d="M28 68V32l22 14 22-14v36" stroke="white" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="brand-text">
+        <strong>AIBridge</strong>
+        <span>AI 接入网关</span>
+      </div>
+    </div>
+
+    <nav class="nav" id="nav"></nav>
+
+    <div class="sidebar-foot">
+      <div class="side-profile" id="sideProfile" hidden></div>
+      <div class="status-pill" id="sideStatus">
+        <span class="dot"></span>
+        <span class="txt">连接中…</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1 id="pageTitle">概览</h1>
+        <p id="pageDesc">查看服务运行状态与接入概况</p>
+      </div>
+      <div class="topbar-actions" id="topbarActions"></div>
+    </header>
+    <div class="view" id="view"></div>
+  </main>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="modal-root" id="modalRoot"></div>
+
+<script src="/android.js"></script>
+<script src="/core.js"></script>
+<script src="/views.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

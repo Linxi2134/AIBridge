@@ -1,0 +1,36 @@
+{
+  "name": "aibridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AIBridge · 多平台 AI 接入网关：网页管理 + 微信/QQ/企业微信渠道 + 自定义模型与语音 API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "mock": "node mock-model.js",
+    "test": "node tests/selftest.js",
+    "test:chat": "node tests/test-chat.js",
+    "test:memory": "node tests/test-memory.js",
+    "test:memory-curve": "node tests/test-memory-curve.js",
+    "test:game": "node tests/test-game-agent.js",
+    "test:channels": "node tests/test-channels.js",
+    "test:channel-security": "node tests/test-channel-security.js",
+    "test:onebot": "node tests/test-onebot.js",
+    "test:voice": "node tests/test-voice-qq.js",
+    "test:video": "node tests/test-video.js",
+    "test:control": "node tests/test-control.js",
+    "test:computer": "node tests/test-computer.js",
+    "replay:mc": "node tools/replay-mc-session.js",
+    "build:agent": "node mcmod/build.js",
+    "build:ctl": "go build -C tools/ctl -ldflags=\"-s -w -H windowsgui\" -o ../../lib/computer/ctl.exe .",
+    "build:launcher": "go build -C tools/launcher -ldflags=\"-s -w -H windowsgui\" -o ../../AIBridge.exe ."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "sherpa-onnx-node": "^2.0.1",
+    "silk-wasm": "^3.7.1"
+  }
+}

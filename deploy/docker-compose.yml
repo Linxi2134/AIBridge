@@ -1,0 +1,34 @@
+services:
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: aibridge-napcat
+    restart: unless-stopped
+
+    ports:
+      - "6099:6099"   # WebUI：扫码登录与配置
+      - "3000:3000"   # OneBot 11 HTTP API
+      - "3001:3001"   # OneBot 11 正向 WebSocket（可选）
+
+    environment:
+      - NAPCAT_UID=1000
+      - NAPCAT_GID=1000
+
+    volumes:
+      # NapCat 配置（含 WebUI token）—— 别删，删了要重新登录
+      - ./napcat/config:/app/napcat/config
+      # QQ 登录态与数据 —— 别删
+      - ./napcat/qq:/app/.config/QQ
+
+    # Linux 上让容器能通过 host.docker.internal 访问宿主机
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # QQ 在受限 seccomp 下容易崩溃，放开
+    security_opt:
+      - seccomp:unconfined
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AIBridge 聊天</title>
+<link rel="stylesheet" href="chat.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- 无边框窗口：这条是拖动区（mousedown 交给系统当标题栏处理） -->
+  <header class="bar" id="bar">
+    <div class="avatar" id="avatar">爱</div>
+    <div class="who">
+      <div class="name" id="name">爱丽丝</div>
+      <div class="state" id="state">正在连接…</div>
+    </div>
+    <div class="acts">
+      <button class="ib" id="btnWake" title="语音唤醒：说「爱丽丝」">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 10.5v3"/><path d="M8 7.5v9"/><path d="M12 9.5v5"/><path d="M16 6v12"/><path d="M20 10v4"/>
+        </svg>
+      </button>
+      <button class="ib" id="btnSpeak" title="播报回复">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+        </svg>
+      </button>
+      <button class="ib" id="btnMore" title="更多">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></svg>
+      </button>
+      <button class="ib close" id="btnClose" title="收起">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M7 7l10 10M17 7 7 17"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="preview" class="preview" hidden>
+    <img id="previewImg" alt="AI 视角" />
+  </div>
+
+  <main class="list" id="list"></main>
+
+  <div class="tip" id="tip" hidden></div>
+
+  <footer class="bottom">
+    <button class="mic" id="btnMic" title="点一下开始说话，再点一下结束">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2.5" width="6" height="11" rx="3"/>
+        <path d="M6 11.5a6 6 0 0 0 12 0"/><path d="M12 17.5V21"/><path d="M9 21h6"/>
+      </svg>
+    </button>
+    <textarea id="input" rows="1" placeholder="说点什么…"></textarea>
+    <button class="send" id="btnSend" title="发送">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12h13"/><path d="m12 6 6 6-6 6"/>
+      </svg>
+    </button>
+  </footer>
+
+  <div class="menu" id="menu" hidden>
+    <label class="row">
+      <span>语音唤醒</span>
+      <input type="checkbox" id="optWake" />
+    </label>
+    <label class="row">
+      <span>播报回复</span>
+      <input type="checkbox" id="optSpeak" />
+    </label>
+    <label class="row">
+      <span>提示音</span>
+      <input type="checkbox" id="optBeep" />
+    </label>
+    <label class="row">
+      <span>本地模型</span>
+      <input type="checkbox" id="optLlm" />
+    </label>
+    <label class="row">
+      <span>游戏窗口只看不点</span>
+      <input type="checkbox" id="optPassive" />
+    </label>
+    <label class="row">
+      <span>看 AI 画面</span>
+      <input type="checkbox" id="optPreview" />
+    </label>
+    <label class="row">
+      <span>唤醒词</span>
+      <input type="text" id="optWord" class="word" maxlength="8" />
+    </label>
+    <div class="sep"></div>
+    <div class="row"><span>快捷键说话</span><b>Ctrl + Alt + J</b></div>
+    <div class="sep"></div>
+    <button class="mrow" id="optMain">打开管理面板</button>
+    <button class="mrow" id="optVoice">语音设置…</button>
+  </div>
+
+</div>
+<script src="/android.js"></script>
+<script src="chat.js"></script>
+</body>
+</html>

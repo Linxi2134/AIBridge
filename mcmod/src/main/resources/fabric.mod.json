@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "aibridge",
+  "version": "1.0.0",
+  "name": "AIBridge Control",
+  "description": "把 Minecraft 暴露成一组 HTTP 接口，给 AI 直接读写游戏状态用（不模拟鼠标键盘）。",
+  "authors": ["AIBridge"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.aibridge.mcmod.AiBridgeMod"
+    ]
+  },
+  "mixins": [
+    "aibridge.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.20.0",
+    "minecraft": "*"
+  },
+  "suggests": {
+    "baritone": ">=1.20.0"
+  }
+}

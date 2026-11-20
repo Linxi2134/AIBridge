@@ -1,0 +1,38 @@
+# 依赖与运行时（发布包里自带，仓库不收录）
+node_modules/
+runtime/
+
+# 本地数据：只保留示例配置
+data/*
+!data/config.example.json
+
+# 日志与临时文件
+*.log
+*.tmp
+
+# AI / 编辑器 / 工具目录
+.workbuddy-ai/
+.dsh-acl-recovery/
+
+# 测试守卫快照（跑测试时生成，含本地配置与记忆）
+tests/.config-guard*.json
+tests/.memory-guard*.json
+
+# Windows 与 Minecraft 二进制（由 tools/ 下的源码构建）
+AIBridge.exe
+lib/computer/ctl.exe
+*.apk
+*.idsig
+
+# Android：SDK、构建产物、签名、生成的资产与运行时库来源
+android/sdk/
+android/build/
+android/app/build/
+android/app/src/main/assets/nodejs-project/
+android/tools/termux/
+android/*.keystore
+android/release-keystore.properties
+android/.legacy-public/
+android/.legacy-test/
+android/web-modern/
+android/.bun-test/
