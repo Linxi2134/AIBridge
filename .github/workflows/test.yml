@@ -1,0 +1,43 @@
+name: offline-tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # 离线测试不依赖 node_modules：语音/视频相关用例需要 ffmpeg-static 等依赖，
+      # 不放进这里，避免 CI 每次去装几十 MB 的原生包。
+      - name: syntax check
+        run: |
+          set -e
+          for f in server.js mock-model.js $(find lib public tests tools -name '*.js' -not -path '*/node_modules/*'); do
+            node --check "$f"
+          done
+
+      - name: offline tests
+        run: |
+          set -e
+          for t in \
+            tests/test-memory-curve.js \
+            tests/test-memory-library.js \
+            tests/test-kb.js \
+            tests/test-skills.js \
+            tests/test-video-gen.js \
+            tests/test-channel-security.js; do
+            echo "=== $t"
+            node "$t"
+          done

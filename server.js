@@ -787,12 +787,24 @@ async function handleApi(req, res, url) {
   }
 
   if (pathname === '/api/memory' && method === 'GET') {
-    const items = memory.list({
-      scope: query.scope,
-      query: query.q,
-      limit: Number(query.limit) || 300,
+    // 记忆库页面：检索 + 按清晰度/标签/归档状态筛选 + 分页，附带统计
+    const lib = memory.library({
+      q: query.q || '',
+      scope: query.scope || '',
+      tier: query.tier || '',
+      tag: query.tag || '',
+      archived: query.archived === undefined ? '' : query.archived,
+      sort: query.sort || 'strength',
+      limit: Number(query.limit) || 50,
+      offset: Number(query.offset) || 0,
     });
-    return sendJson(res, 200, { items, stats: memory.stats() });
+    return sendJson(res, 200, { ...lib, stats: memory.stats() });
+  }
+  if (pathname === '/api/memory/bulk' && method === 'POST') {
+    const body = await readJson(req);
+    const affected = memory.bulk({ action: body.action, ids: body.ids });
+    logs.info('memory', `批量${body.action}：影响 ${affected} 条`);
+    return sendJson(res, 200, { ok: true, affected });
   }
   if (pathname === '/api/memory' && method === 'POST') {
     const body = await readJson(req);
@@ -813,7 +825,7 @@ async function handleApi(req, res, url) {
   const memMatch = pathname.match(/^\/api\/memory\/([^/]+)$/);
   if (memMatch) {
     const id = decodeURIComponent(memMatch[1]);
-    if (method === 'PUT') {
+    if (method === 'PUT' || method === 'PATCH') {
       const body = await readJson(req);
       const fact = memory.update(id, body);
       if (!fact) return sendJson(res, 404, { error: '记忆不存在' });
@@ -822,6 +834,244 @@ async function handleApi(req, res, url) {
     if (method === 'DELETE') {
       return sendJson(res, 200, { ok: memory.remove(id) });
     }
+  }
+
+  // --- 知识库 ---
+  if (pathname === '/api/kb/collections' && method === 'GET') {
+    return sendJson(res, 200, { collections: require('./lib/kb').listCollections() });
+  }
+  if (pathname === '/api/kb/collections' && method === 'POST') {
+    const body = await readJson(req);
+    const collection = require('./lib/kb').createCollection({
+      name: body.name,
+      description: body.description,
+    });
+    logs.info('kb', `新建知识库集合「${collection.name}」`);
+    return sendJson(res, 200, { ok: true, collection });
+  }
+  if (pathname === '/api/kb/stats' && method === 'GET') {
+    return sendJson(res, 200, require('./lib/kb').stats());
+  }
+  if (pathname === '/api/kb/search' && method === 'GET') {
+    const collections = query.collections
+      ? String(query.collections).split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+    const hits = require('./lib/kb').search({
+      query: query.q || query.query || '',
+      collections,
+      k: Number(query.k) || 6,
+    });
+    return sendJson(res, 200, { query: query.q || query.query || '', hits });
+  }
+  const kbColMatch = pathname.match(/^\/api\/kb\/collections\/([^/]+)(\/docs)?$/);
+  if (kbColMatch) {
+    const kbLib = require('./lib/kb');
+    const colId = decodeURIComponent(kbColMatch[1]);
+    const isDocs = Boolean(kbColMatch[2]);
+    if (isDocs && method === 'GET') {
+      return sendJson(res, 200, { docs: kbLib.listDocuments(colId) });
+    }
+    if (isDocs && method === 'POST') {
+      const body = await readJson(req);
+      const dataBase64 = String(body.dataBase64 || '').replace(/^data:[^,]+,/, '');
+      if (!body.text && !dataBase64) {
+        return sendJson(res, 400, { error: '请提供 text（粘贴文本）或 dataBase64（文件内容）' });
+      }
+      let buffer = null;
+      if (dataBase64) {
+        buffer = Buffer.from(dataBase64, 'base64');
+        // 与 readBody 的 25MB 上限留出 JSON/base64 膨胀空间
+        if (buffer.length > 20 * 1024 * 1024) return sendJson(res, 413, { error: '文档超过 20MB' });
+        if (!buffer.length) return sendJson(res, 400, { error: '文件内容为空或 base64 无法解码' });
+      }
+      const doc = kbLib.addDocument({
+        collectionId: colId,
+        title: body.title,
+        filename: body.filename,
+        mime: body.mime,
+        text: body.text,
+        buffer,
+      });
+      logs.info('kb', `导入文档「${doc.title}」（${Array.isArray(doc.chunks) ? doc.chunks.length : 0} 块）`);
+      const { chunks, ...summary } = doc;
+      return sendJson(res, 200, {
+        ok: true,
+        doc: { ...summary, chunkCount: Array.isArray(chunks) ? chunks.length : (summary.chunkCount || 0) },
+      });
+    }
+    if (!isDocs && (method === 'PATCH' || method === 'PUT')) {
+      const body = await readJson(req);
+      const ok = kbLib.updateCollection(colId, body);
+      if (!ok) return sendJson(res, 404, { error: '集合不存在' });
+      return sendJson(res, 200, { ok: true });
+    }
+    if (!isDocs && method === 'DELETE') {
+      const ok = kbLib.removeCollection(colId);
+      if (!ok) return sendJson(res, 404, { error: '集合不存在' });
+      logs.info('kb', `删除知识库集合 ${colId}`);
+      return sendJson(res, 200, { ok: true });
+    }
+    if (isDocs) return sendJson(res, 405, { error: '不支持的方法' });
+  }
+  const kbDocMatch = pathname.match(/^\/api\/kb\/docs\/([^/]+)$/);
+  if (kbDocMatch) {
+    const kbLib = require('./lib/kb');
+    const docId = decodeURIComponent(kbDocMatch[1]);
+    if (method === 'GET') {
+      const doc = kbLib.getDocument(docId, { preview: true });
+      if (!doc) return sendJson(res, 404, { error: '文档不存在' });
+      // 不把全量 chunks 发给前端：大文档会把响应撑到几 MB
+      const { chunks, ...rest } = doc;
+      return sendJson(res, 200, { doc: rest, preview: doc.preview || [] });
+    }
+    if (method === 'DELETE') {
+      const ok = kbLib.removeDocument(docId);
+      if (!ok) return sendJson(res, 404, { error: '文档不存在' });
+      return sendJson(res, 200, { ok: true });
+    }
+  }
+
+  // --- 技能包 ---
+  if (pathname === '/api/skills' && method === 'GET') {
+    return sendJson(res, 200, { skills: require('./lib/skills').listSkills() });
+  }
+  if (pathname === '/api/skills/install' && method === 'POST') {
+    const body = await readJson(req);
+    const skillsLib = require('./lib/skills');
+    let result;
+    if (body.path) {
+      result = skillsLib.installSkill({ dir: String(body.path) });
+    } else if (body.dataBase64) {
+      const raw = String(body.dataBase64).replace(/^data:[^,]+,/, '');
+      const buffer = Buffer.from(raw, 'base64');
+      if (buffer.length > 10 * 1024 * 1024) return sendJson(res, 413, { error: '技能包超过 10MB' });
+      if (!buffer.length) return sendJson(res, 400, { error: '技能包内容为空或 base64 无法解码' });
+      result = skillsLib.installSkill({ buffer });
+    } else if (body.manifest) {
+      result = skillsLib.installSkill({ manifest: body.manifest, files: body.files || {} });
+    } else {
+      return sendJson(res, 400, { error: '请提供 zip（dataBase64）、服务端目录（path）或 manifest' });
+    }
+    logs.info('skills', `安装技能「${result.skill.name}」(${result.skill.id})`);
+    return sendJson(res, 200, { ok: true, ...result });
+  }
+  const skillToggle = pathname.match(/^\/api\/skills\/([^/]+)\/enabled$/);
+  if (skillToggle && (method === 'POST' || method === 'PUT')) {
+    const body = await readJson(req);
+    const skill = require('./lib/skills').setEnabled(decodeURIComponent(skillToggle[1]), body.enabled !== false);
+    if (!skill) return sendJson(res, 404, { error: '技能不存在' });
+    return sendJson(res, 200, { ok: true, skill });
+  }
+  const skillMatch = pathname.match(/^\/api\/skills\/([^/]+)$/);
+  if (skillMatch) {
+    const skillsLib = require('./lib/skills');
+    const id = decodeURIComponent(skillMatch[1]);
+    if (method === 'GET') {
+      const skill = skillsLib.getSkill(id, { withInstructions: true });
+      if (!skill) return sendJson(res, 404, { error: '技能不存在' });
+      return sendJson(res, 200, {
+        skill,
+        instructions: skill.instructions,
+        files: skill.files || [],
+      });
+    }
+    if (method === 'DELETE') {
+      const ok = skillsLib.removeSkill(id);
+      if (!ok) return sendJson(res, 404, { error: '技能不存在' });
+      logs.info('skills', `卸载技能 ${id}`);
+      return sendJson(res, 200, { ok: true });
+    }
+  }
+
+  // --- 视频生成 ---
+  if (pathname === '/api/video/status' && method === 'GET') {
+    return sendJson(res, 200, require('./lib/video-gen').status());
+  }
+  if (pathname === '/api/video/generate' && method === 'POST') {
+    const body = await readJson(req);
+    const job = require('./lib/video-gen').submit({
+      prompt: body.prompt,
+      image: body.image,
+      model: body.model,
+      size: body.size,
+      seconds: body.seconds,
+      provider: body.provider,
+      notify: body.notify,
+    });
+    return sendJson(res, 200, { ok: true, job });
+  }
+  if (pathname === '/api/video/jobs' && method === 'GET') {
+    const vg = require('./lib/video-gen');
+    return sendJson(res, 200, { jobs: vg.list(Number(query.limit) || 30), status: vg.status() });
+  }
+  const vgSend = pathname.match(/^\/api\/video\/jobs\/([^/]+)\/send$/);
+  if (vgSend && method === 'POST') {
+    const body = await readJson(req);
+    const vg = require('./lib/video-gen');
+    const id = decodeURIComponent(vgSend[1]);
+    const job = vg.get(id);
+    if (!job) return sendJson(res, 404, { error: '任务不存在' });
+    if (job.status !== 'succeeded') return sendJson(res, 400, { error: '视频还没生成完成' });
+    const bridge = require('./lib/channels/bridge');
+    try {
+      const r = await bridge.sendVideo({
+        channel: body.channel,
+        targetType: body.targetType || 'private',
+        targetId: body.targetId,
+        file: vg.filePath(id),
+        caption: body.caption || `视频生成完成\n${String(job.prompt || '').slice(0, 80)}`,
+      });
+      return sendJson(res, 200, { ok: true, ...r });
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message });
+    }
+  }
+  const vgJob = pathname.match(/^\/api\/video\/jobs\/([^/]+)$/);
+  if (vgJob) {
+    const vg = require('./lib/video-gen');
+    const id = decodeURIComponent(vgJob[1]);
+    if (method === 'GET') {
+      const job = vg.get(id);
+      if (!job) return sendJson(res, 404, { error: '任务不存在' });
+      return sendJson(res, 200, { job, ready: Boolean(vg.filePath(id)) });
+    }
+    if (method === 'DELETE') {
+      return sendJson(res, 200, { ok: vg.remove(id) });
+    }
+  }
+  const vgFile = pathname.match(/^\/api\/video\/file\/([^/]+)$/);
+  if (vgFile && method === 'GET') {
+    const vg = require('./lib/video-gen');
+    const file = vg.filePath(decodeURIComponent(vgFile[1]));
+    if (!file) return sendText(res, 404, 'Not Found');
+    const stat = fs.statSync(file);
+    const range = String(req.headers.range || '');
+    const m = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (m) {
+      const start = m[1] ? Number(m[1]) : 0;
+      const end = m[2] ? Number(m[2]) : stat.size - 1;
+      if (start >= stat.size || end < start) {
+        res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` });
+        return res.end();
+      }
+      res.writeHead(206, {
+        'Content-Type': 'video/mp4',
+        'Content-Length': end - start + 1,
+        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'public, max-age=3600',
+      });
+      fs.createReadStream(file, { start, end }).pipe(res);
+      return undefined;
+    }
+    res.writeHead(200, {
+      'Content-Type': 'video/mp4',
+      'Content-Length': stat.size,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'public, max-age=3600',
+    });
+    fs.createReadStream(file).pipe(res);
+    return undefined;
   }
 
   // --- OneBot 11 连通性测试 ---

@@ -27,6 +27,9 @@
         { id: 'channels', label: '渠道', icon: 'plug' },
         { id: 'agents', label: '智能体', icon: 'bot' },
         { id: 'memory', label: '记忆', icon: 'globe' },
+        { id: 'knowledge', label: '知识库', icon: 'book' },
+        { id: 'skills', label: '技能', icon: 'package' },
+        { id: 'video', label: '视频生成', icon: 'play' },
       ],
     },
     {
@@ -42,6 +45,17 @@
   if (window.AIBRIDGE_ANDROID) {
     for (const g of NAV) g.items = g.items.filter((it) => it.id !== 'game' && it.id !== 'login');
   }
+
+  // 手机上用底部导航：四个高频入口 + 「更多」抽屉放其余页面。
+  // 桌面端不渲染 tabbar（.tabbar 默认 display:none），侧栏保持原样。
+  const TABS = [
+    { id: 'overview', label: '概览', icon: 'dashboard' },
+    { id: 'chat', label: '对话', icon: 'chat' },
+    { id: 'memory', label: '记忆', icon: 'globe' },
+    { id: 'logs', label: '日志', icon: 'terminal' },
+    { id: '__more', label: '更多', icon: 'more' },
+  ];
+  const TAB_IDS = new Set(TABS.filter((t) => t.id !== '__more').map((t) => t.id));
 
   const App = {
     state: {
@@ -136,6 +150,63 @@
       el.addEventListener('click', () => App.navigate(el.dataset.route));
     });
     renderProfile();
+    buildTabbar();
+  }
+
+  // ---------------- 手机底部导航 / 更多抽屉 ----------------
+  function moreRoutes() {
+    const out = [];
+    for (const g of NAV) for (const it of g.items) if (!TAB_IDS.has(it.id)) out.push(it);
+    return out;
+  }
+
+  function buildTabbar() {
+    if (!window.AIBRIDGE_ANDROID) return;
+    const bar = document.getElementById('tabbar');
+    if (!bar) return;
+    bar.hidden = false;
+    const route = App.state.route;
+    const moreActive = !TAB_IDS.has(route);
+    bar.innerHTML = TABS.map((t) => {
+      const active = t.id === '__more' ? moreActive : t.id === route;
+      return `<button class="tabbar-item${active ? ' active' : ''}" data-tab="${t.id}">
+        ${icon(t.icon, 20)}<span>${t.label}</span>
+      </button>`;
+    }).join('');
+    bar.querySelectorAll('[data-tab]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.tab;
+        if (id === '__more') openMoreSheet();
+        else { closeMoreSheet(); App.navigate(id); }
+      });
+    });
+  }
+
+  function buildMoreGrid() {
+    const grid = document.getElementById('moreGrid');
+    if (!grid) return;
+    grid.innerHTML = moreRoutes().map((it) => `
+      <button class="sheet-item${App.state.route === it.id ? ' active' : ''}" data-more-route="${it.id}">
+        ${icon(it.icon, 20)}<span>${escapeHtml(it.label)}</span>
+      </button>`).join('');
+    grid.querySelectorAll('[data-more-route]').forEach((el) => {
+      el.addEventListener('click', () => {
+        closeMoreSheet();
+        App.navigate(el.dataset.moreRoute);
+      });
+    });
+  }
+
+  function openMoreSheet() {
+    const root = document.getElementById('moreSheet');
+    if (!root) return;
+    buildMoreGrid();
+    root.hidden = false;
+  }
+
+  function closeMoreSheet() {
+    const root = document.getElementById('moreSheet');
+    if (root) root.hidden = true;
   }
 
   /**
@@ -170,6 +241,7 @@
 
   App.navigate = function (route) {
     if (window.AIBRIDGE_ANDROID && (route === 'game' || route === 'login')) route = 'overview';
+    closeMoreSheet();
     if (App.state.logTimer) { clearInterval(App.state.logTimer); App.state.logTimer = null; }
     if (App.state.login?.polling) { clearInterval(App.state.login.polling); App.state.login.polling = null; }
     App.state.route = route;
@@ -306,12 +378,22 @@
     }
   };
 
-  App.loadMemory = async function () {    try {
+  App.loadMemory = async function () {
+    try {
       const params = new URLSearchParams();
       if (App.state.memoryQuery) params.set('q', App.state.memoryQuery);
+      if (App.state.memoryTier) params.set('tier', App.state.memoryTier);
+      if (App.state.memoryTag) params.set('tag', App.state.memoryTag);
+      if (App.state.memoryArchived !== undefined && App.state.memoryArchived !== '') {
+        params.set('archived', App.state.memoryArchived);
+      }
+      params.set('limit', '50');
+      params.set('offset', String((App.state.memoryPage || 0) * 50));
       const r = await api(`/api/memory?${params.toString()}`);
       App.state.memoryItems = r.items || [];
       App.state.memoryStats = r.stats || { total: 0, byScope: {}, max: 400 };
+      App.state.memoryTotal = r.total || 0;
+      App.state.memoryCounts = r.counts || null;
     } catch (err) {
       toast(err.message, 'err');
     }
@@ -542,6 +624,9 @@
     if (window.AIBRIDGE_ANDROID && (App.state.route === 'game' || App.state.route === 'login')) App.state.route = 'overview';
 
     document.getElementById('sideProfile')?.addEventListener('click', () => App.navigate('agents'));
+    document.querySelectorAll('[data-sheet-close]').forEach((el) => {
+      el.addEventListener('click', closeMoreSheet);
+    });
     buildNav();
 
     try {

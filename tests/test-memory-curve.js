@@ -135,6 +135,34 @@ ok('补齐 stability', typeof old.stability === 'number' && old.stability > 0, S
 ok('补齐 reps（沿用 hits）', old.reps === 5);
 ok('能算出强度', typeof old.strength === 'number' && old.strength > 0 && old.strength < 1, String(old && old.strength));
 
+console.log('\n[10] 遗忘曲线开关');
+
+const storeLib = require('../lib/store');
+const enableCurve = (on) => {
+  storeLib.saveConfig({ memory: { ...(storeLib.getConfig().memory || {}), curve: { enabled: on } } });
+};
+
+const keep = memory.remember({ content: '关掉曲线后这条不该衰减', scope: 'user:web:curve', importance: 0.9 });
+keep.lastAccessAt = Date.now() - 400 * DAY;
+keep.stability = 0.5;
+
+enableCurve(false);
+ok('关掉后强度恒为 1', memory.retrievability(keep) === 1, String(memory.retrievability(keep)));
+ok('关掉后档位恒为清晰', memory.tierOf(memory.retrievability(keep)) === 'clear');
+const flat = memory.curve(keep.id, 30, 5);
+ok('曲线是水平线', flat.length === 6 && flat.every((p) => p.r === 1), JSON.stringify(flat));
+const consOff = memory.consolidate();
+ok('关掉后不归档', consOff.archived === 0, JSON.stringify(consOff));
+ok('关掉后不再加固', consOff.boosted === 0, JSON.stringify(consOff));
+ok('stats 里带 curveEnabled=false', memory.stats().curveEnabled === false);
+ok('记忆仍然召得回', memory.recall({ text: '关掉曲线后这条不该衰减', scopes: ['user:web:curve'], limit: 3 })
+  .some((f) => f.id === keep.id));
+
+enableCurve(true);
+keep.lastAccessAt = Date.now() - 400 * DAY;
+ok('重新开启后恢复衰减', memory.retrievability(keep) < 1, String(memory.retrievability(keep)));
+ok('重新开启后 stats 标记为 true', memory.stats().curveEnabled === true);
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败\n`);
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (_) { /* ignore */ }
 process.exit(fail ? 1 : 0);

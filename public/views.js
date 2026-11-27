@@ -229,13 +229,14 @@
               <div class="meta" id="chatMeta">${App.chat.busy ? '正在生成…' : '就绪'}</div>
             </div>
             <span class="tag info" id="chatModelTag">${escapeHtml(modelLabel(agents.find((a) => a.id === curAgent)))}</span>
+            ${window.AIBRIDGE_ANDROID ? `<button class="btn btn-ghost btn-sm chat-side-toggle" data-act="toggle-side" title="智能体与历史会话">${icon('history', 14)} 会话</button>` : ''}
           </div>
 
           <div class="messages" id="messages"></div>
 
           <div class="chat-input">
             <div class="input-box">
-              <textarea id="chatInput" rows="1" placeholder="输入消息，Enter 发送 / Shift+Enter 换行"></textarea>
+              <textarea id="chatInput" rows="1" placeholder="${window.AIBRIDGE_ANDROID ? '输入消息…' : '输入消息，Enter 发送 / Shift+Enter 换行'}"></textarea>
               <button class="mic-btn" id="micBtn" title="按住说话">${icon('mic')}</button>
               <button class="send-btn" id="sendBtn" title="发送">${icon('send')}</button>
             </div>
@@ -256,6 +257,17 @@
       const meta = root.querySelector('#chatMeta');
 
       App.chat.ui = { inputEl, sendBtn, micBtn, msgBox, meta };
+
+      // 手机上侧栏是覆盖面板：默认收起，用标题栏的「会话」按钮开关。
+      const wrap = root.querySelector('.chat-wrap');
+      const closeSide = () => wrap?.classList.remove('show-side');
+      root.querySelector('[data-act="toggle-side"]')?.addEventListener('click', () => {
+        wrap?.classList.toggle('show-side');
+      });
+      root.querySelector('.chat-main')?.addEventListener('click', (e) => {
+        if (e.target.closest('[data-act="toggle-side"]')) return;
+        if (wrap?.classList.contains('show-side')) closeSide();
+      }, true);
 
       renderMessages();
 
@@ -293,10 +305,14 @@
         App.chat.sessionId = '';
         App.loadChatSessions();
         renderMessages();
+        closeSide();
       });
 
       root.querySelectorAll('[data-session]').forEach((el) => {
-        el.addEventListener('click', () => App.loadChatSession(el.dataset.session));
+        el.addEventListener('click', () => {
+          App.loadChatSession(el.dataset.session);
+          closeSide();
+        });
       });
 
       const clearBtn = document.querySelector('[data-act="clear"]');
@@ -907,16 +923,18 @@
       }
       const rows = providers.map((p) => {
         const configured = Boolean(p.apiKey);
-        return `<div class="list-row">
+        return `<div class="list-row provider-row">
           <div class="avatar" style="background:var(--primary-soft);color:var(--primary)">${icon('cpu', 15)}</div>
           <div class="grow">
             <div class="name">${escapeHtml(p.name)} ${configured ? '<span class="tag ok" style="margin-left:6px">已配置</span>' : '<span class="tag warn" style="margin-left:6px">缺密钥</span>'}</div>
             <div class="desc mono">${escapeHtml(p.baseUrl)}</div>
           </div>
-          <span class="tag">${(p.models || []).length} 个模型</span>
-          <button class="btn btn-ghost btn-sm" data-test="${escapeHtml(p.id)}">${icon('zap', 13)} 测试</button>
-          <button class="btn btn-ghost btn-sm" data-edit="${escapeHtml(p.id)}">${icon('edit', 13)} 编辑</button>
-          <button class="btn btn-danger btn-sm btn-icon" data-del="${escapeHtml(p.id)}">${icon('trash', 13)}</button>
+          <div class="row-actions">
+            <span class="tag">${(p.models || []).length} 个模型</span>
+            <button class="btn btn-ghost btn-sm" data-test="${escapeHtml(p.id)}">${icon('zap', 13)} 测试</button>
+            <button class="btn btn-ghost btn-sm" data-edit="${escapeHtml(p.id)}">${icon('edit', 13)} 编辑</button>
+            <button class="btn btn-danger btn-sm btn-icon" data-del="${escapeHtml(p.id)}">${icon('trash', 13)}</button>
+          </div>
         </div>`;
       }).join('');
 
@@ -1733,7 +1751,9 @@
     title: '长期记忆',
     desc: '跨会话、跨渠道共享的认知，让 AI 记得住人和事',
     actions() {
-      return `<button class="btn btn-ghost btn-sm" data-act="mem-consolidate" title="合并相似记忆、加固常用的、把沉底的归档">${icon('zap', 14)} 巩固</button>
+      const curveOn = (App.state.memoryStats?.curveEnabled !== false);
+      return `<button class="btn btn-ghost btn-sm" data-act="mem-curve-toggle" title="关闭后记忆恒为 100%，不再衰减或归档">${icon('wave', 14)} 遗忘曲线：${curveOn ? '开' : '关'}</button>
+              <button class="btn btn-ghost btn-sm" data-act="mem-consolidate" title="合并相似记忆、加固常用的、把沉底的归档">${icon('zap', 14)} 巩固</button>
               <button class="btn btn-ghost btn-sm" data-act="mem-refresh">${icon('refresh', 14)} 刷新</button>
               <button class="btn btn-primary btn-sm" data-act="mem-add">${icon('plus', 14)} 添加记忆</button>`;
     },
@@ -1752,6 +1772,11 @@
         ? items
         : items.filter((f) => scopeKind(f.scope) === filter);
 
+      const picked = App.state.memoryPicked || [];
+      const page = App.state.memoryPage || 0;
+      const pageCount = Math.max(1, Math.ceil((App.state.memoryTotal || 0) / 50));
+      const curveOn = stats.curveEnabled !== false;
+
       const tabs = [
         { id: 'all', label: '全部', n: stats.total },
         { id: 'global', label: '公共', n: counts.global },
@@ -1767,6 +1792,8 @@
         const strengthPct = Math.round((f.strength === undefined ? 1 : f.strength) * 100);
         const stab = f.halfLifeDays !== undefined ? f.halfLifeDays : Math.round((f.stability || 0) * 0.69 * 10) / 10;
         return `<div class="list-row" style="align-items:flex-start;${f.archived ? 'opacity:.6' : ''}">
+          <input type="checkbox" data-pick-mem="${escapeHtml(f.id)}" ${picked.includes(f.id) ? 'checked' : ''}
+            style="margin-top:9px;flex:none" title="选中后可以批量归档或删除">
           <div style="width:3px;height:34px;border-radius:2px;flex:none;margin-top:2px;
             background:${kind === 'global' ? 'var(--primary)' : kind === 'agent' ? 'var(--warn)' : 'var(--success)'};
             opacity:${0.3 + (f.importance || 0.5) * 0.7}"></div>
@@ -1782,8 +1809,9 @@
               ${f.archived ? '<span class="tag">已沉睡</span>' : ''}
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
-              ${strengthBar(f)}
-              ${memorySpark(f)}
+              ${curveOn
+                ? `${strengthBar(f)}${memorySpark(f)}`
+                : '<span class="tag info" title="遗忘曲线已关闭，这条记忆不会被时间冲淡">不遗忘 · 强度 100%</span>'}
             </div>
           </div>
           <button class="btn btn-ghost btn-sm" data-touch-mem="${escapeHtml(f.id)}" title="模拟「想起来一次」，会加固这条记忆">${icon('refresh', 13)} 想起</button>
@@ -1808,7 +1836,7 @@
           <div class="label">${icon('wave', 13)} 平均强度</div>
           <div class="value">${avgStrength}<span style="font-size:14px;color:var(--text-3);font-weight:500">%</span></div>
           <div style="margin-top:8px">${tierBar(byTier, stats.total - archived)}</div>
-          <div class="hint" style="margin-top:6px">清晰 ${byTier.clear || 0} · 模糊 ${byTier.fuzzy || 0} · 隐约 ${byTier.vague || 0}</div>
+          <div class="hint" style="margin-top:6px">清晰 ${byTier.clear || 0} · 模糊 ${byTier.fuzzy || 0} · 隐约 ${byTier.vague || 0}${curveOn ? '' : '（曲线已关闭，全部按 100% 处理）'}</div>
         </div>
         <div class="stat">
           <div class="label">${icon('globe', 13)} 公共 / 人格</div>
@@ -1823,18 +1851,40 @@
       </div>
 
       <div class="card">
-        <div class="card-head">
-          <div style="display:flex;gap:4px">
+        <div class="card-head mem-head">
+          <div class="mem-tabs">
             ${tabs.map((t) => `<button class="btn btn-sm ${filter === t.id ? 'btn-primary' : 'btn-ghost'}"
               style="${filter === t.id ? '' : 'background:transparent;border-color:transparent'}"
               data-mem-tab="${t.id}">${t.label} <span style="opacity:.65;margin-left:2px">${t.n}</span></button>`).join('')}
           </div>
-          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <div class="mem-tools">
             <input class="input" id="memSearch" placeholder="搜索记忆内容…"
               value="${escapeHtml(App.state.memoryQuery || '')}"
-              style="width:220px;height:32px;font-size:13px">
+              style="height:32px;font-size:13px">
             <button class="btn btn-danger btn-sm" data-act="mem-clear">${icon('trash', 13)} 清空</button>
           </div>
+        </div>
+        <div class="mem-filters" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+          padding:10px 14px;border-bottom:1px solid var(--border)">
+          <select class="input" id="memTier" style="height:32px;font-size:13px;max-width:130px">
+            <option value="">全部清晰度</option>
+            <option value="clear" ${App.state.memoryTier === 'clear' ? 'selected' : ''}>清晰</option>
+            <option value="fuzzy" ${App.state.memoryTier === 'fuzzy' ? 'selected' : ''}>模糊</option>
+            <option value="vague" ${App.state.memoryTier === 'vague' ? 'selected' : ''}>隐约</option>
+          </select>
+          <select class="input" id="memArchived" style="height:32px;font-size:13px;max-width:150px">
+            <option value="" ${!App.state.memoryArchived ? 'selected' : ''}>含已沉睡</option>
+            <option value="false" ${App.state.memoryArchived === 'false' ? 'selected' : ''}>只看活跃</option>
+            <option value="true" ${App.state.memoryArchived === 'true' ? 'selected' : ''}>只看沉睡</option>
+          </select>
+          <input class="input" id="memTag" placeholder="按标签过滤…" value="${escapeHtml(App.state.memoryTag || '')}"
+            style="height:32px;font-size:13px;max-width:170px">
+          <span class="text-sm text-muted">共 ${App.state.memoryTotal || 0} 条匹配</span>
+          ${picked.length ? `<span class="tag info">已选 ${picked.length} 条</span>
+            <button class="btn btn-ghost btn-sm" data-act="mem-bulk-archive">归档</button>
+            <button class="btn btn-ghost btn-sm" data-act="mem-bulk-restore">唤醒</button>
+            <button class="btn btn-danger btn-sm" data-act="mem-bulk-delete">删除</button>
+            <button class="btn btn-ghost btn-sm" data-act="mem-bulk-clear">取消选择</button>` : ''}
         </div>
         <div class="list">
           ${rows || emptyState(
@@ -1843,6 +1893,11 @@
             'cpu'
           )}
         </div>
+        ${pageCount > 1 ? `<div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:10px 14px">
+          <button class="btn btn-ghost btn-sm" data-act="mem-prev" ${page <= 0 ? 'disabled' : ''}>上一页</button>
+          <span class="text-sm text-muted">第 ${page + 1} / ${pageCount} 页</span>
+          <button class="btn btn-ghost btn-sm" data-act="mem-next" ${page >= pageCount - 1 ? 'disabled' : ''}>下一页</button>
+        </div>` : ''}
       </div>
 
       <div class="notice info mt-4">${icon('info')}
@@ -1853,6 +1908,7 @@
           <br>
           <strong>公共认知</strong>对所有会话可见，<strong>用户记忆</strong>只在该用户的对话里注入，
           <strong>人格记忆</strong>让同一个智能体在微信、QQ、网页上保持一致。
+          ${curveOn ? '' : '<br><strong>遗忘曲线已关闭</strong>：所有记忆恒为 100%，不会因为时间久了变模糊，也不会沉底归档。'}
         </div>
       </div>`;
     },
@@ -1866,6 +1922,25 @@
       loadSparks(root);
 
       document.querySelector('[data-act="mem-refresh"]')?.addEventListener('click', reload);
+
+      // 遗忘曲线开关：关掉后记忆恒为 100%（不衰减、不归档），设置随实例保存在 config 里
+      document.querySelector('[data-act="mem-curve-toggle"]')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try {
+          const cfg = App.state.config;
+          cfg.memory = { ...(cfg.memory || {}) };
+          const wasOn = cfg.memory.curve?.enabled !== false;
+          cfg.memory.curve = { enabled: !wasOn };
+          await App.saveConfig();
+          await App.loadMemory();
+          toast(wasOn ? '已关闭遗忘曲线：记忆不再衰减' : '已开启遗忘曲线：记忆会随时间变淡', 'ok');
+          App.render();
+        } catch (err) {
+          toast(err.message, 'err');
+          btn.disabled = false;
+        }
+      });
 
       document.querySelector('[data-act="mem-consolidate"]')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
@@ -1919,6 +1994,71 @@
           }, 320);
         });
       }
+
+      // 记忆库筛选：清晰度 / 归档状态 / 标签，全部走后端参数，改完回到第一页
+      const applyFilter = async (patch) => {
+        Object.assign(App.state, patch, { memoryPage: 0 });
+        await App.loadMemory();
+        App.render();
+      };
+      root.querySelector('#memTier')?.addEventListener('change', (e) => applyFilter({ memoryTier: e.target.value }));
+      root.querySelector('#memArchived')?.addEventListener('change', (e) => applyFilter({ memoryArchived: e.target.value }));
+      const tagInput = root.querySelector('#memTag');
+      if (tagInput) {
+        let tagTimer;
+        tagInput.addEventListener('input', () => {
+          clearTimeout(tagTimer);
+          tagTimer = setTimeout(() => applyFilter({ memoryTag: tagInput.value.trim() }), 350);
+        });
+      }
+
+      root.querySelectorAll('[data-pick-mem]').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          const set = new Set(App.state.memoryPicked || []);
+          if (cb.checked) set.add(cb.dataset.pickMem);
+          else set.delete(cb.dataset.pickMem);
+          App.state.memoryPicked = [...set];
+          App.render();
+        });
+      });
+
+      const runBulk = async (action) => {
+        const ids = App.state.memoryPicked || [];
+        if (!ids.length) return;
+        if (action === 'delete') {
+          const yes = await Core.confirmDialog({
+            title: '批量删除记忆',
+            message: `将永久删除选中的 ${ids.length} 条记忆，不可恢复。`,
+            confirmText: '删除',
+            danger: true,
+          });
+          if (!yes) return;
+        }
+        try {
+          const r = await api('/api/memory/bulk', { method: 'POST', body: { action, ids } });
+          toast(`已处理 ${r.affected} 条`, 'ok');
+          App.state.memoryPicked = [];
+          await reload();
+        } catch (err) {
+          toast(err.message, 'err');
+        }
+      };
+      document.querySelector('[data-act="mem-bulk-archive"]')?.addEventListener('click', () => runBulk('archive'));
+      document.querySelector('[data-act="mem-bulk-restore"]')?.addEventListener('click', () => runBulk('restore'));
+      document.querySelector('[data-act="mem-bulk-delete"]')?.addEventListener('click', () => runBulk('delete'));
+      document.querySelector('[data-act="mem-bulk-clear"]')?.addEventListener('click', () => {
+        App.state.memoryPicked = [];
+        App.render();
+      });
+
+      const gotoPage = async (delta) => {
+        const next = Math.max(0, (App.state.memoryPage || 0) + delta);
+        if (next === (App.state.memoryPage || 0)) return;
+        App.state.memoryPage = next;
+        await reload();
+      };
+      document.querySelector('[data-act="mem-prev"]')?.addEventListener('click', () => gotoPage(-1));
+      document.querySelector('[data-act="mem-next"]')?.addEventListener('click', () => gotoPage(1));
 
       document.querySelector('[data-act="mem-add"]')?.addEventListener('click', () => openMemoryModal(null));
 
@@ -2752,6 +2892,13 @@
             <input class="input" id="set-mem-link-qq" style="width:170px"
               placeholder="QQ 号" value="${escapeHtml(cfg.memory?.link?.userId || '')}" />
           </div>
+          <div class="switch-row" style="border-top:1px solid var(--border)">
+            ${switchEl('sw-mem-curve', cfg.memory?.curve?.enabled !== false)}
+            <div>
+              <div class="label">遗忘曲线</div>
+              <div class="hint">开启：记忆按人脑规律衰减，越久没想起越模糊，久到看不见会沉底。关闭：所有记忆恒为 100%，永不降级、不归档——适合「就要它把事全记住」</div>
+            </div>
+          </div>
           <div class="grid grid-2 mt-3" style="gap:14px">
             <div>${field('每次召回条数', input('set-mem-limit', cfg.memory?.injectLimit || 12, { type: 'number' }), '注入 system prompt 的记忆上限，建议 8~15')}</div>
             <div>${field('提炼用模型', input('set-mem-model', cfg.memory?.model || '', { placeholder: '留空则用智能体的模型', mono: true }), '可指定更便宜的小模型做提炼')}</div>
@@ -2937,6 +3084,8 @@
           autoExtract: root.querySelector('#sw-mem-auto').classList.contains('on'),
           injectLimit: Number(root.querySelector('#set-mem-limit').value) || 12,
           model: root.querySelector('#set-mem-model').value.trim(),
+          // 遗忘曲线开关：关掉后记忆恒为 100%，不衰减也不归档
+          curve: { enabled: root.querySelector('#sw-mem-curve').classList.contains('on') },
           link: {
             enabled: root.querySelector('#sw-mem-link').classList.contains('on'),
             channel: cfg.memory?.link?.channel || 'onebot',

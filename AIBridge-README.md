@@ -1,4 +1,4 @@
-# AIBridge
+﻿# AIBridge
 
 一个可自部署的 AI 机器人中台：网页管理后台 + 微信 / 企业微信 / QQ 接入 + 任意 OpenAI 兼容模型 + 语音与长期记忆。
 
@@ -54,7 +54,7 @@ node server.js
 
 ### Android 版
 
-仓库根目录的 `AIBridge.apk` 是 arm64 安装包（当前 1.1.1 / versionCode 3，Android 8.0 / API 26 起）。安装后首次启动会解压内置运行时（约 100MB，需数十秒），之后启动只需几秒。
+仓库根目录的 `AIBridge.apk` 是 arm64 安装包（当前 1.2.0 / versionCode 4，Android 8.0 / API 26 起）。安装后首次启动会解压内置运行时（约 100MB，需数十秒），之后启动只需几秒。
 
 - 管理后台由 WebView 加载 `http://127.0.0.1:8787`，与桌面版同一套前端
 - 不含桌面工具、Minecraft、本地大模型与本地 STT，其余渠道/记忆/语音能力一致

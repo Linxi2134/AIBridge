@@ -36,3 +36,5 @@ android/.legacy-public/
 android/.legacy-test/
 android/web-modern/
 android/.bun-test/
+
+tools/launcher/*.syso
